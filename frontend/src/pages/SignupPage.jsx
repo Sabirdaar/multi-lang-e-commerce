@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import AuthCard from "../component/AuthCard";
+import SocialProviders from "../component/SocialProviders";
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -154,11 +155,9 @@ const Signup = () => {
         </Link>
       </p>
 
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <p className="text-xs text-center text-gray-500">
-          By creating an account, you agree to our Terms of Service and Privacy Policy
-        </p>
-      </div>
+      <div className="text-center text-sm text-gray-500 mt-6 mb-2">or</div>
+
+      <SocialProviders />
     </AuthCard>
   );
 };

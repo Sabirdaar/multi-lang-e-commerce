@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { authService } from '../services/apiService';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile
+} from 'firebase/auth';
+import { auth } from '../firebase';
 
 const AuthContext = createContext();
 
@@ -14,52 +21,64 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    const userData = localStorage.getItem('userData');
-    
-    if (token && userData) {
-      try {
-        const user = JSON.parse(userData);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
         setCurrentUser(user);
-        setUserProfile(user);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userData');
+        setUserProfile({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          emailVerified: user.emailVerified,
+          photoURL: user.photoURL,
+          createdAt: user.metadata.creationTime,
+          lastLogin: user.metadata.lastSignInTime
+        });
+      } else {
+        setCurrentUser(null);
+        setUserProfile(null);
       }
-    }
-    setLoading(false);
-  }, []);
-
-  const fetchUserProfile = async () => {
-    try {
-      const response = await authService.getProfile();
-      setUserProfile(response.data);
-      setCurrentUser(response.data);
-      localStorage.setItem('userData', JSON.stringify(response.data));
-    } catch (error) {
-      console.error('Failed to fetch user profile:', error);
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
-    } finally {
       setLoading(false);
-    }
-  };
+    });
+
+    return unsubscribe;
+  }, []);
 
   const login = async (email, password) => {
     try {
       setError('');
-      const response = await authService.login({ email, password });
-      const { token, user } = response.data;
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
       
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('userData', JSON.stringify(user));
       setCurrentUser(user);
-      setUserProfile(user);
+      setUserProfile({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        emailVerified: user.emailVerified,
+        photoURL: user.photoURL,
+        createdAt: user.metadata.creationTime,
+        lastLogin: user.metadata.lastSignInTime
+      });
       
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.message || error.message || 'Login failed';
+      let message = 'Login failed. Please try again.';
+      switch (error.code) {
+        case 'auth/invalid-email':
+          message = 'Invalid email address.';
+          break;
+        case 'auth/user-disabled':
+          message = 'This account has been disabled.';
+          break;
+        case 'auth/user-not-found':
+          message = 'No account found with this email.';
+          break;
+        case 'auth/wrong-password':
+          message = 'Incorrect password.';
+          break;
+        default:
+          message = error.message;
+      }
       setError(message);
       return { success: false, error: message };
     }
@@ -68,17 +87,48 @@ export function AuthProvider({ children }) {
   const register = async (userData) => {
     try {
       setError('');
-      const response = await authService.register(userData);
-      const { token, user } = response.data;
-      
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('userData', JSON.stringify(user));
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        userData.email, 
+        userData.password
+      );
+      const user = userCredential.user;
+
+      // Update user profile with name
+      if (userData.firstName || userData.lastName) {
+        const displayName = `${userData.firstName} ${userData.lastName}`.trim();
+        await updateProfile(user, {
+          displayName: displayName
+        });
+      }
+
       setCurrentUser(user);
-      setUserProfile(user);
+      setUserProfile({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || `${userData.firstName} ${userData.lastName}`.trim(),
+        emailVerified: user.emailVerified,
+        photoURL: user.photoURL,
+        createdAt: user.metadata.creationTime,
+        lastLogin: user.metadata.lastSignInTime
+      });
       
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.message || error.message || 'Registration failed';
+      let message = 'Registration failed. Please try again.';
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          message = 'An account with this email already exists.';
+          break;
+        case 'auth/invalid-email':
+          message = 'Invalid email address.';
+          break;
+        case 'auth/weak-password':
+          message = 'Password should be at least 6 characters.';
+          break;
+        default:
+          message = error.message;
+      }
       setError(message);
       return { success: false, error: message };
     }
@@ -86,26 +136,41 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await authService.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
+      await signOut(auth);
       setCurrentUser(null);
       setUserProfile(null);
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
-  const updateProfile = async (profileData) => {
+  const updateUserProfile = async (profileData) => {
     try {
-      const response = await authService.updateProfile(profileData);
-      setUserProfile(response.data);
-      localStorage.setItem('userData', JSON.stringify(response.data));
-      return { success: true };
+      if (currentUser) {
+        await updateProfile(currentUser, profileData);
+        setUserProfile(prev => ({
+          ...prev,
+          ...profileData
+        }));
+        return { success: true };
+      }
+      return { success: false, error: 'No user logged in' };
     } catch (error) {
-      const message = error.response?.data?.message || error.message || 'Profile update failed';
-      return { success: false, error: message };
+      return { success: false, error: error.message };
+    }
+  };
+
+  const sendEmailVerification = async () => {
+    try {
+      if (currentUser) {
+        // Note: This requires the user to be recently signed in
+        // You might need to re-authenticate the user first
+        await currentUser.sendEmailVerification();
+        return { success: true, message: 'Verification email sent!' };
+      }
+      return { success: false, error: 'No user logged in' };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
   };
 
@@ -117,13 +182,15 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
-    updateProfile,
+    updateProfile: updateUserProfile,
+    sendEmailVerification,
     isAuthenticated: !!currentUser,
+    isEmailVerified: currentUser?.emailVerified || false,
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 }

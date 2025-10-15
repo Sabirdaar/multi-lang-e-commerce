@@ -4,13 +4,13 @@ import ProtectedRoute from './component/ProtectedRoute';
 import Login from './pages/LoginPage';
 import Signup from './pages/SignupPage';
 import Dashboard from './pages/Dashboard';
-import DevBanner from './component/DevBanner';
+
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <DevBanner />
+        
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
