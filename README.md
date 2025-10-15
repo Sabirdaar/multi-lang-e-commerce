@@ -301,3 +301,5 @@ Component Documentation: Check individual component files for usage
 State Management: AuthContext provides authentication state
 
 Routing: ProtectedRoute handles authentication guards
+<img width="948" height="414" alt="{10832EAC-1325-4163-9F84-82A1BFAED58B}" src="https://github.com/user-attachments/assets/02a7279c-15bb-42f9-884f-c62c7b6934fe" />
+
