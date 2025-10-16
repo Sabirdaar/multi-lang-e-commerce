@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import AuthCard from "../component/AuthCard";
@@ -9,11 +9,18 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  const { login, error } = useAuth();
+  const { login, error, clearError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = location.state?.from?.pathname || "/dashboard";
+
+  // Clear form and errors when component mounts
+  useEffect(() => {
+    clearError();
+    setEmail("");
+    setPassword("");
+  }, [clearError]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -22,6 +29,9 @@ const Login = () => {
     const result = await login(email, password);
     
     if (result.success) {
+      // Clear form on success
+      setEmail("");
+      setPassword("");
       navigate(from, { replace: true });
     }
     
@@ -93,6 +103,7 @@ const Login = () => {
         <Link 
           to="/signup" 
           className="text-indigo-600 font-medium hover:underline hover:text-indigo-700"
+          onClick={clearError}
         >
           Sign Up
         </Link>
