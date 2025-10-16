@@ -302,4 +302,7 @@ State Management: AuthContext provides authentication state
 
 Routing: ProtectedRoute handles authentication guards
 <img width="948" height="414" alt="{10832EAC-1325-4163-9F84-82A1BFAED58B}" src="https://github.com/user-attachments/assets/02a7279c-15bb-42f9-884f-c62c7b6934fe" />
+<img width="949" height="414" alt="image" src="https://github.com/user-attachments/assets/b45ce2f7-a785-4669-8104-5387a850ce4e" />
+
+
 
